@@ -1,0 +1,105 @@
+---
+title: "Practical Machine Learning Project"
+author: "Ngiam Pei Yee"
+date: "3/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Overview**
+
+This document is the final report of the Peer Assessment project from Coursera’s course Practical Machine Learning, as part of the Specialization in Data Science. It was built up in RStudio, using its knitr functions, meant to be published in html format. This analysis meant to be the basis for the course quiz and a prediction assignment writeup. The main goal of the project is to predict the manner in which 6 participants performed some exercise as described below. This is the “classe” variable in the training set. The machine learning algorithm described here is applied to the 20 test cases available in the test data.
+
+**Background**
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+The goal of this project is to predict the manner of performing unilateral dumbbell biceps curls based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The 5 possible methods include -
+
+A: exactly according to the specification\
+B: throwing the elbows to the front\
+C: lifting the dumbbell only halfway\
+D: lowering the dumbbell only halfway\
+E: throwing the hips to the front
+
+```{r}
+library(caret)
+library(kernlab)
+library(lattice)
+library(randomForest)
+traincsv <- read.csv(file="pml-training.csv")
+testcsv <- read.csv(file="pml-testing.csv")
+
+dim(traincsv)
+dim(testcsv)
+```
+
+We see that there are 160 variables and 19622 observations in the training set, while there is 20 observations for the test set.
+
+
+**Cleaning the Data**
+
+First we remove the unnecessary variables such as N/A. Next, we also removed the Near Zero variance (NZV) variables. Lastly, we remove the first 5 variable that are not relevant to the outcome.
+
+```{r}
+traincsv<- traincsv[, colSums(is.na(traincsv)) == 0]
+testcsv <- testcsv[, colSums(is.na(traincsv)) == 0]
+nvz <- nearZeroVar(traincsv)
+traincsv <- traincsv[,-nvz]
+traincsv <- traincsv[,-c(1:5)]
+testcsv <- testcsv[,-c(1:5)]
+dim(traincsv)
+dim(testcsv)
+
+```
+
+**Preparing the datasets for prediction**
+
+Now that we have finished removing the unnecessary variables, we can now split the training set into a validation and sub training set. We will preparing the data for prediction by splitting the training data into 70% as train data and 30% as test data. This splitting will also serve to compute the out-of-sample errors.
+
+The testing set “testcsv” will be left alone, and used for the final quiz test cases.
+
+```{r}
+set.seed(1234)
+inTrain <- createDataPartition(y=traincsv$classe, p=0.7, list=F)
+train <- traincsv[inTrain,]
+valid <- traincsv[-inTrain,]
+dim(train)
+dim(valid)
+
+```
+
+**Testing the Model **
+
+Set up control for training to use 3-fold cross validation.\
+Train model with random forest due to its highly accuracy rate.\
+```{r}
+control <- trainControl(method="cv", number=3, verboseIter=F)
+modFit <- train(classe ~., data=train, method="rf", trControl=control)
+modFit$finalModel
+
+```
+
+**Accuracy on training set and cross validation set**
+```{r}
+trainingPred <- predict(modFit, newdata=train)
+cmrftrain <- confusionMatrix(trainingPred, factor(train$classe))
+cmrftrain 
+
+cvPred <- predict(modFit, newdata=valid)
+cmrfvalid <- confusionMatrix(cvPred, factor(valid$classe))
+cmrfvalid 
+```
+The accuracy rate using the random forest for both the training and validation set are very high. The out of sample error rate is very low. Hence, we find that to be a sufficient enough model to use for our test sets.
+
+**RESULTS**
+Predictions on the real testing set
+
+```{r}
+testingPred <- predict(modFit, testcsv)
+testingPred
+
+```
